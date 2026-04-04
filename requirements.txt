@@ -1,4 +1,4 @@
 requests
-google-generativeai
+google-genai
 pyzotero
 python-dotenv

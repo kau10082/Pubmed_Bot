@@ -10,9 +10,9 @@ import json
 import time
 
 try:
-    import google.generativeai as genai
+    from google import genai
 except ImportError:
-    print("Warning: google.generativeai not installed. Please 'pip install google-generativeai'")
+    print("Warning: google-genai not installed. Please 'pip install google-genai'")
     genai = None
 
 try:
