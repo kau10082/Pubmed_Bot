@@ -45,9 +45,9 @@ SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
 RECEIVER_EMAIL = os.getenv("RECEIVER_EMAIL")
 
 # Construct the query components
-CORE_QUERY = '(COPD OR "chronic obstructive pulmonary disease" OR asthma OR bronchiectasis OR IPF OR "Pulmonary fibrosis" OR "smoking cessation" OR "Catheter-related bloodstream infection" OR CRBSI OR "catheter-associated urinary tract infection" OR CAUTI OR "ventilator-associated pneumonia" OR VAP OR "osteoinductive factor" OR BICRI OR REVOCART OR minocycline OR fluzole OR "bronchiolitis obliterans" OR "lung transplantation" OR "chronic cough" OR mepolizumab OR pirfenidone OR dupilumab OR benralizumab)'
-STUDY_TYPE_FILTER = 'AND (Randomized Controlled Trial[PT] OR Meta-Analysis[PT] OR Systematic Review[PT])'
-NEGATIVE_FILTER = 'NOT (pediatric OR child OR children OR infants OR neonatal)'
+CORE_QUERY = '(COPD OR "chronic obstructive pulmonary disease" OR asthma OR bronchiectasis OR IPF OR "Pulmonary fibrosis" OR "smoking cessation" OR "Catheter-related bloodstream infection" OR CRBSI OR "catheter-associated urinary tract infection" OR CAUTI OR "ventilator-associated pneumonia" OR VAP OR "osteoinductive factor" OR BICRI OR REVOCART OR minocycline OR fluzole OR "chronic cough")'
+STUDY_TYPE_FILTER = 'AND (Randomized Controlled Trial[PT] OR Meta-Analysis[PT] OR Systematic Review[PT]) AND humans[MH]'
+NEGATIVE_FILTER = 'NOT (pediatric OR child OR children OR infants OR neonatal OR animal OR rat OR rats OR mouse OR mice OR murine OR rodent OR "in vitro" OR "cell line" OR "animal model")'
 
 # Combine into a single comprehensive query
 FULL_QUERY = f"{CORE_QUERY} {STUDY_TYPE_FILTER} {NEGATIVE_FILTER}"
