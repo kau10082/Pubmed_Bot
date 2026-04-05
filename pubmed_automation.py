@@ -55,6 +55,7 @@ NEGATIVE_FILTER = settings['query']['negative_filter']
 
 GEMINI_MODEL = settings['report']['gemini_model']
 EMAIL_SUBJECT_PREFIX = settings['report']['email_subject_prefix']
+REPORT_LANGUAGE = settings['report']['language']
 
 # Combine into a single comprehensive query
 FULL_QUERY = f"{CORE_QUERY} {STUDY_TYPE_FILTER} {NEGATIVE_FILTER}"
@@ -132,9 +133,9 @@ Prioritize accuracy over fluency. If information for any field is ambiguous or n
 
 Please output your response STRICTLY as a JSON object with the exact following string keys:
 "Research Method" : [Formal Full English Term] ([Traditional Chinese Annotation]). Constraint: Use formal full terms (e.g. Randomized Controlled Trial, NOT RCT). The Chinese annotation must be strictly under 30 chars. Logic Guard: If ambiguous, use the most specific full-length English term and set the annotation to "待進一步臨床核實". e.g. "Randomized Controlled Trial (雙盲隨機對照試驗，評估 Minocycline 對於 VAP 之療效)"
-"n-Value" : Traditional Chinese only. Summarize the sample size, cohort composition, or population details. Constraint: Total length must be strictly under 30 characters. e.g. "共 450 名加護病房使用呼吸器之成年患者"
-"Abstract Summary" : Chinese (Traditional) abstract summary under 100 characters
-"Impact & Evidence Rating" : Chinese (Traditional) assessment of impact and evidence rating
+"n-Value" : {REPORT_LANGUAGE} only. Summarize the sample size, cohort composition, or population details. Constraint: Total length must be strictly under 30 characters. e.g. "共 450 名加護病房使用呼吸器之成年患者"
+"Abstract Summary" : {REPORT_LANGUAGE} abstract summary under 100 characters
+"Impact & Evidence Rating" : {REPORT_LANGUAGE} assessment of impact and evidence rating
 
 Title: {title}
 Abstract: {abstract}
