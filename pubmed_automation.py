@@ -5,7 +5,8 @@ import xml.etree.ElementTree as ET
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from datetime import datetime
+from datetime import datetime, timedelta
+import yaml
 import json
 import time
 
@@ -45,9 +46,15 @@ SENDER_PASSWORD = os.getenv("SENDER_PASSWORD")
 RECEIVER_EMAIL = os.getenv("RECEIVER_EMAIL")
 
 # Construct the query components
-CORE_QUERY = '(COPD OR "chronic obstructive pulmonary disease" OR asthma OR bronchiectasis OR IPF OR "Pulmonary fibrosis" OR "smoking cessation" OR "Catheter-related bloodstream infection" OR CRBSI OR "catheter-associated urinary tract infection" OR CAUTI OR "ventilator-associated pneumonia" OR VAP OR "osteoinductive factor" OR BICRI OR REVOCART OR minocycline OR fluzole OR "chronic cough")'
-STUDY_TYPE_FILTER = 'AND (Randomized Controlled Trial[PT] OR Meta-Analysis[PT] OR Systematic Review[PT]) AND humans[MH]'
-NEGATIVE_FILTER = 'NOT (pediatric OR child OR children OR infants OR neonatal OR animal OR rat OR rats OR mouse OR mice OR murine OR rodent OR "in vitro" OR "cell line" OR "animal model")'
+with open('config/settings.yaml', 'r', encoding='utf-8') as f:
+    settings = yaml.safe_load(f)
+
+CORE_QUERY = settings['query']['core']
+STUDY_TYPE_FILTER = settings['query']['study_type_filter']
+NEGATIVE_FILTER = settings['query']['negative_filter']
+
+GEMINI_MODEL = settings['report']['gemini_model']
+EMAIL_SUBJECT_PREFIX = settings['report']['email_subject_prefix']
 
 # Combine into a single comprehensive query
 FULL_QUERY = f"{CORE_QUERY} {STUDY_TYPE_FILTER} {NEGATIVE_FILTER}"
@@ -134,7 +141,7 @@ Abstract: {abstract}
 """
     try:
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model=GEMINI_MODEL,
             contents=prompt
         )
         text = response.text.strip()
@@ -165,14 +172,17 @@ Abstract: {abstract}
         }
 
 def search_pubmed():
-    """Search PubMed and retrieve a list of PMIDs matching the criteria from the last 24 hours."""
+    """Search PubMed and retrieve a list of PMIDs matching the criteria from yesterday."""
     search_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
+    
+    yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y/%m/%d')
     
     # Search 1: by EDAT (articles newly entered into PubMed)
     params_edat = {
         "db": "pubmed",
         "term": FULL_QUERY,
-        "reldate": 1,
+        "mindate": yesterday,
+        "maxdate": yesterday,
         "datetype": "edat",
         "retmode": "json",
         "api_key": PUBMED_API_KEY,
@@ -183,7 +193,8 @@ def search_pubmed():
     params_mhda = {
         "db": "pubmed",
         "term": FULL_QUERY,
-        "reldate": 1,
+        "mindate": yesterday,
+        "maxdate": yesterday,
         "datetype": "mhda",
         "retmode": "json",
         "api_key": PUBMED_API_KEY,
@@ -338,7 +349,7 @@ def main():
     
     if not pmids:
         print("\nNo articles found matching the criteria in the last 24 hours.")
-        subject = f"[Future Lab] System Alert: No results found today."
+        subject = f"{EMAIL_SUBJECT_PREFIX} System Alert: No results found today."
         email_content = f'''
         <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
@@ -355,7 +366,7 @@ def main():
     print(f"\nFound {len(pmids)} new articles in the last 24 hours. Fetching details and analyzing...\n")
     articles = fetch_details(pmids)
     
-    subject = f"[Future Lab] PubMed Daily Report - {today_str}"
+    subject = f"{EMAIL_SUBJECT_PREFIX} PubMed Daily Report - {today_str}"
     
     email_content = f'''
     <html>
