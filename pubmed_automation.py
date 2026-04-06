@@ -132,7 +132,7 @@ Please analyze the following scientific abstract and extract the required inform
 Prioritize accuracy over fluency. If information for any field is ambiguous or not explicitly stated, mark it as 'Unclear' rather than generating speculative data.
 
 Please output your response STRICTLY as a JSON object with the exact following string keys:
-"Research Method" : [Formal Full English Term] ([Traditional Chinese Annotation]). Constraint: Use formal full terms (e.g. Randomized Controlled Trial, NOT RCT). The Chinese annotation must be strictly under 30 chars. Logic Guard: If ambiguous, use the most specific full-length English term and set the annotation to "待進一步臨床核實". e.g. "Randomized Controlled Trial (雙盲隨機對照試驗，評估 Minocycline 對於 VAP 之療效)"
+"Research Method" : [Formal Full English Term] ([{REPORT_LANGUAGE} Annotation]). Constraint: Use formal full terms (e.g. Randomized Controlled Trial, NOT RCT). The annotation must be strictly under 30 chars and written in {REPORT_LANGUAGE}. Logic Guard: If ambiguous, use the most specific full-length English term and set the annotation to "待進一步臨床核實" if language is zh-TW, or "Pending further clinical verification" if language is en. e.g. "Randomized Controlled Trial (雙盲隨機對照試驗，評估 Minocycline 對於 VAP 之療效)"
 "n-Value" : {REPORT_LANGUAGE} only. Summarize the sample size, cohort composition, or population details. Constraint: Total length must be strictly under 30 characters. e.g. "共 450 名加護病房使用呼吸器之成年患者"
 "Abstract Summary" : {REPORT_LANGUAGE} abstract summary under 100 characters
 "Impact & Evidence Rating" : {REPORT_LANGUAGE} assessment of impact and evidence rating
