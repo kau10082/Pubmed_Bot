@@ -140,37 +140,45 @@ Please output your response STRICTLY as a JSON object with the exact following s
 Title: {title}
 Abstract: {abstract}
 """
-    try:
-        response = client.models.generate_content(
-            model=GEMINI_MODEL,
-            contents=prompt
-        )
-        text = response.text.strip()
-        
-        # Clean potential markdown wrappers
-        if text.startswith("```json"):
-            text = text[7:]
-        elif text.startswith("```"):
-            text = text[3:]
-        if text.endswith("```"):
-            text = text[:-3]
-        text = text.strip()
-        
-        result = json.loads(text)
-        return {
-            "Research Method": result.get("Research Method", "Unclear"),
-            "n-Value": result.get("n-Value", "Unclear"),
-            "Abstract Summary": result.get("Abstract Summary", "Unclear"),
-            "Impact & Evidence Rating": result.get("Impact & Evidence Rating", "Unclear")
-        }
-    except Exception as e:
-        print(f"Error during Gemini analysis: {e}")
-        return {
-            "Research Method": "Error",
-            "n-Value": "Error",
-            "Abstract Summary": "Error",
-            "Impact & Evidence Rating": "Error"
-        }
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            response = client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=prompt
+            )
+            text = response.text.strip()
+            
+            # Clean potential markdown wrappers
+            if text.startswith("```json"):
+                text = text[7:]
+            elif text.startswith("```"):
+                text = text[3:]
+            if text.endswith("```"):
+                text = text[:-3]
+            text = text.strip()
+            
+            result = json.loads(text)
+            return {
+                "Research Method": result.get("Research Method", "Unclear"),
+                "n-Value": result.get("n-Value", "Unclear"),
+                "Abstract Summary": result.get("Abstract Summary", "Unclear"),
+                "Impact & Evidence Rating": result.get("Impact & Evidence Rating", "Unclear")
+            }
+        except Exception as e:
+            error_str = str(e)
+            if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str.upper():
+                if attempt < max_retries - 1:
+                    print(f"Rate limit exceeded (429). Waiting 60 seconds... (Attempt {attempt + 1} of {max_retries})")
+                    time.sleep(60)
+                    continue
+            print(f"Error during Gemini analysis: {e}")
+            return {
+                "Research Method": "Error",
+                "n-Value": "Error",
+                "Abstract Summary": "Error",
+                "Impact & Evidence Rating": "Error"
+            }
 
 def search_pubmed():
     """Search PubMed and retrieve a list of PMIDs matching the criteria from yesterday."""
@@ -301,7 +309,7 @@ def fetch_details(id_list):
             
             # --- PARALLEL ARCHITECTURE END ---
             
-            time.sleep(2) # Prevent potential rate limiting from free tier
+            time.sleep(13) # Prevent potential rate limiting from free tier
             
             results.append({
                 "PMID": pmid,
