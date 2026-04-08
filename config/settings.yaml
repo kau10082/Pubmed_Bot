@@ -9,6 +9,6 @@ search:
     - mhda
 
 report:
-  gemini_model: 'gemini-2.5-flash'
+  gemini_model: 'gemini-2.0-flash'
   language: zh-TW
   email_subject_prefix: '[Future Lab]'
