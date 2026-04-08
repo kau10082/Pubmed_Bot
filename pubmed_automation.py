@@ -140,7 +140,7 @@ Please output your response STRICTLY as a JSON object with the exact following s
 Title: {title}
 Abstract: {abstract}
 """
-    max_retries = 3
+    max_retries = 6
     for attempt in range(max_retries):
         try:
             response = client.models.generate_content(
@@ -166,10 +166,10 @@ Abstract: {abstract}
                 "Impact & Evidence Rating": result.get("Impact & Evidence Rating", "Unclear")
             }
         except Exception as e:
-            error_str = str(e)
-            if "429" in error_str or "503" in error_str or "RESOURCE_EXHAUSTED" in error_str.upper() or "UNAVAILABLE" in error_str.upper():
+            error_str = str(e).upper()
+            if "429" in error_str or "503" in error_str or "RESOURCE_EXHAUSTED" in error_str or "UNAVAILABLE" in error_str or "TIMEOUT" in error_str:
                 if attempt < max_retries - 1:
-                    wait_time = 60 * (2 ** attempt)
+                    wait_time = 15 * (2 ** attempt)
                     print(f"API error (attempt {attempt + 1} of {max_retries}): {e}. Waiting {wait_time} seconds...")
                     time.sleep(wait_time)
                     continue
