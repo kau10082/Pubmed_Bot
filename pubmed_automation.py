@@ -169,7 +169,7 @@ Abstract: {abstract}
             error_str = str(e)
             if "429" in error_str or "503" in error_str or "RESOURCE_EXHAUSTED" in error_str.upper() or "UNAVAILABLE" in error_str.upper():
                 if attempt < max_retries - 1:
-                    print(f"Rate limit exceeded (429). Waiting 60 seconds... (Attempt {attempt + 1} of {max_retries})")
+                    print(f"API error (attempt {attempt + 1} of {max_retries}): {e}. Waiting 60 seconds...")
                     time.sleep(60)
                     continue
             print(f"Error during Gemini analysis: {e}")
