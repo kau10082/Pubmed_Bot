@@ -39,16 +39,18 @@ except ImportError:
 # which is exactly what Branch C needs (it writes new notes into your vault folder).
 SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 
-CLIENT_SECRET_FILE = "client_secret.json"
+CLIENT_SECRET_FILES = ["client_secret.json", "credentials.json"]
 
 
 def build_client_config():
-    """Load the OAuth client from client_secret.json, or fall back to manual entry."""
-    if os.path.exists(CLIENT_SECRET_FILE):
-        with open(CLIENT_SECRET_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
+    """Load the OAuth client from a downloaded JSON, or fall back to manual entry."""
+    for path in CLIENT_SECRET_FILES:
+        if os.path.exists(path):
+            print(f"Using OAuth client file: {path}")
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
 
-    print(f"'{CLIENT_SECRET_FILE}' not found. Enter the OAuth Desktop client values manually.")
+    print(f"None of {CLIENT_SECRET_FILES} found. Enter the OAuth Desktop client values manually.")
     client_id = input("Client ID: ").strip()
     client_secret = input("Client secret: ").strip()
     return {
