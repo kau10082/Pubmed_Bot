@@ -17,7 +17,7 @@ query:
   axes:
     - key: pulmonary
       name: '肺部疾病'
-      core: '(COPD OR "chronic obstructive pulmonary disease" OR asthma OR bronchiectasis OR IPF OR "Pulmonary fibrosis" OR "smoking cessation" OR "chronic cough" OR "interstitial lung disease" OR ILD OR pneumonia OR tuberculosis OR "lung abscess" OR "pulmonary embolism" OR "pulmonary hypertension" OR "pulmonary arterial hypertension" OR "pleural effusion")'
+      core: '(COPD OR "chronic obstructive pulmonary disease" OR asthma OR bronchiectasis OR IPF OR "Pulmonary fibrosis" OR "smoking cessation" OR "chronic cough" OR "interstitial lung disease" OR ILD OR pneumonia OR tuberculosis OR "lung abscess" OR "pulmonary embolism" OR "pulmonary hypertension" OR "pulmonary arterial hypertension" OR "pleural effusion" OR "Lung Diseases"[MeSH] OR "lung disease" OR "lung diseases" OR "pulmonary disease" OR "pulmonary diseases" OR "respiratory disease" OR "respiratory diseases" OR "sleep apnea" OR bronchitis OR emphysema OR pneumothorax OR empyema OR hemoptysis OR sarcoidosis OR "cystic fibrosis" OR "pulmonary nodule" OR "lung nodule" OR "pulmonary edema" OR pneumoconiosis OR "occupational lung disease" OR "respiratory tract infection")'
       negatives: [nonhuman, pediatric, surgical, tcm, oncology]
       sjr_categories: ['Pulmonary and Respiratory Medicine']
 
@@ -35,7 +35,7 @@ query:
 
     - key: biosheng
       name: '博晟產品線'
-      core: '("osteoinductive factor" OR OIF OR BICRI OR REVOCART OR RevoCart OR BiG OR minocycline OR fluzole)'
+      core: '("osteoinductive factor" OR OIF OR BICRI OR REVOCART OR RevoCart OR minocycline OR fluzole)'
       negatives: [nonhuman, pediatric]   # exempt 'surgical' (implant/device topics); keep noise reducers
       sjr_categories: ['Orthopedics and Sports Medicine', 'Biomedical Engineering']
 
