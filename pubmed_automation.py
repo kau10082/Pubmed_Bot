@@ -388,6 +388,25 @@ def format_sjr_label(verdict):
         return "SJR：未收錄"
     return "SJR：未啟用"
 
+
+def build_search_summary_html(pmid_axes, filtered, passed):
+    """HTML block summarising the four-axis search: per-axis hits, union, and SJR gate result."""
+    axis_counts = {a['key']: 0 for a in AXES}
+    for axes in pmid_axes.values():
+        for k in axes:
+            if k in axis_counts:
+                axis_counts[k] += 1
+    per_axis = "　|　".join(f"{a['name']}: {axis_counts[a['key']]} 篇" for a in AXES)
+    union = len(pmid_axes)
+    return (
+        '<div style="background:#eef3f8;border-left:4px solid #2c3e50;'
+        'padding:12px 15px;margin-bottom:20px;font-size:14px;border-radius:4px;">'
+        '<b>🔍 搜尋過程摘要</b><br>'
+        f'{per_axis}<br>'
+        f'合計（去重後）：<b>{union}</b> 篇　→　SJR 篩選通過 <b>{passed}</b> 篇（刷掉 {filtered} 篇）'
+        '</div>'
+    )
+
 def passes_sjr(verdict):
     """Decide whether an article clears the SJR quartile gate."""
     status = verdict.get('status')
@@ -526,10 +545,10 @@ def fetch_details(pmid_axes):
             results.append(record)
 
         print(f"[Filter] {total} fetched -> {len(results)} passed SJR gate ({filtered} filtered out)")
-        return results
+        return results, total, filtered
     except Exception as e:
         print(f"Error fetching/parsing details from PubMed: {e}")
-        return []
+        return [], 0, 0
 
 def send_email(subject, html_content):
     try:
@@ -577,7 +596,8 @@ def main():
         return
 
     print(f"\nFound {len(pmid_axes)} candidate articles (union of axes). Fetching details, applying SJR gate, analyzing...\n")
-    articles = fetch_details(pmid_axes)
+    articles, total_fetched, filtered_count = fetch_details(pmid_axes)
+    summary_html = build_search_summary_html(pmid_axes, filtered_count, len(articles))
 
     if not articles:
         print("\nAll candidates were filtered out by the SJR gate; no report sent with articles.")
@@ -588,6 +608,7 @@ def main():
             <h2>No qualifying articles today.</h2>
             <p>Generated on: {date_time_str}</p>
             <hr>
+            {summary_html}
             <p>{len(pmid_axes)} candidate(s) matched the search but none passed the SJR Q1-Q2 gate.</p>
         </body>
         </html>
@@ -612,8 +633,9 @@ def main():
         <h2>Daily PubMed Summary</h2>
         <p>Generated on: {date_time_str}</p>
         <hr>
+        {summary_html}
     '''
-    
+
     for i, article in enumerate(articles, 1):
         # Print to console for local logging
         print(f"[{i}] {article['Title']}")
