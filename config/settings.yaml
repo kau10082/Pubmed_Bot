@@ -44,6 +44,10 @@ search:
   # Must NOT be 'edat' while the query filters on [PT]/[MH] tags, or it returns ~0 daily.
   datetype:
     - mhda
+  lookback_days: 1            # search window: 1 = yesterday only. >1 widens it but needs dedup first (else duplicates).
+  retmax: 100                 # max results returned per axis
+  per_article_delay_seconds: 13   # pause after each article that passes the SJR gate (NCBI/API courtesy; lower if on a paid tier)
+  inter_axis_delay_seconds: 0.5   # pause between the four axis searches
 
 sjr:
   enabled: true
@@ -57,5 +61,9 @@ report:
   gemini_fallback_models:
     - 'gemini-2.5-flash-lite'
     - 'gemini-2.0-flash'
+  gemini_max_retries: 4             # attempts per model before falling back to the next
+  gemini_backoff_base_seconds: 15   # exponential backoff base: 15, 30, 60, 120...
   language: zh-TW
   email_subject_prefix: '[Future Lab]'
+  smtp_host: 'smtp.gmail.com'       # change for non-Gmail SMTP providers
+  smtp_port: 587

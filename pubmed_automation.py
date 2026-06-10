@@ -106,9 +106,20 @@ _search_cfg = settings.get('search', {}) or {}
 _dt = _search_cfg.get('datetype', 'mhda')
 SEARCH_DATETYPE = _dt[0] if isinstance(_dt, list) and _dt else (_dt if isinstance(_dt, str) else 'mhda')
 
+# Search window / pacing (all have backward-compatible defaults)
+SEARCH_LOOKBACK_DAYS = int(_search_cfg.get('lookback_days', 1))   # 1 = yesterday only; >1 needs dedup first
+SEARCH_RETMAX = int(_search_cfg.get('retmax', 100))               # max results per axis
+PER_ARTICLE_DELAY = float(_search_cfg.get('per_article_delay_seconds', 13))   # pause after each passing article
+INTER_AXIS_DELAY = float(_search_cfg.get('inter_axis_delay_seconds', 0.5))    # pause between axis searches
+
+_report_cfg = settings.get('report', {}) or {}
 GEMINI_MODEL = settings['report']['gemini_model']
 EMAIL_SUBJECT_PREFIX = settings['report']['email_subject_prefix']
 REPORT_LANGUAGE = settings['report']['language']
+GEMINI_MAX_RETRIES = int(_report_cfg.get('gemini_max_retries', 4))             # attempts per model before fallback
+GEMINI_BACKOFF_BASE = float(_report_cfg.get('gemini_backoff_base_seconds', 15))  # exponential backoff base
+SMTP_HOST = _report_cfg.get('smtp_host', 'smtp.gmail.com')
+SMTP_PORT = int(_report_cfg.get('smtp_port', 587))
 
 # Ordered list of models to try. When the primary model returns 503/UNAVAILABLE
 # (overloaded) and retries are exhausted, fall back to the next model instead of
@@ -214,7 +225,7 @@ Title: {title}
 Abstract: {abstract}
 """
     overload_markers = ("429", "503", "RESOURCE_EXHAUSTED", "UNAVAILABLE", "TIMEOUT", "OVERLOADED")
-    max_retries = 4  # per model; on overload we switch to the next fallback model rather than waiting forever
+    max_retries = GEMINI_MAX_RETRIES  # per model; on overload we switch to the next fallback model
     last_error = None
 
     for model_name in GEMINI_MODELS:
@@ -249,7 +260,7 @@ Abstract: {abstract}
 
                 if is_overload:
                     if attempt < max_retries - 1:
-                        wait_time = 15 * (2 ** attempt)
+                        wait_time = GEMINI_BACKOFF_BASE * (2 ** attempt)
                         print(f"[{model_name}] API error (attempt {attempt + 1} of {max_retries}): {e}. Waiting {wait_time} seconds...")
                         time.sleep(wait_time)
                         continue
@@ -326,19 +337,21 @@ def search_pubmed():
     tag, which drives the SJR category lookup, and lets each axis apply its own negatives.
     """
     search_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
-    yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y/%m/%d')
+    # Window: maxdate = yesterday, mindate = lookback_days ago (1 = single day)
+    maxdate = (datetime.now() - timedelta(days=1)).strftime('%Y/%m/%d')
+    mindate = (datetime.now() - timedelta(days=SEARCH_LOOKBACK_DAYS)).strftime('%Y/%m/%d')
 
     pmid_axes = {}
     for axis in AXES:
         params = {
             "db": "pubmed",
             "term": build_axis_query(axis),
-            "mindate": yesterday,
-            "maxdate": yesterday,
+            "mindate": mindate,
+            "maxdate": maxdate,
             "datetype": SEARCH_DATETYPE,
             "retmode": "json",
             "api_key": PUBMED_API_KEY,
-            "retmax": 100
+            "retmax": SEARCH_RETMAX
         }
         try:
             response = requests.get(search_url, params=params)
@@ -347,7 +360,7 @@ def search_pubmed():
             for pmid in pmids:
                 pmid_axes.setdefault(pmid, set()).add(axis['key'])
             print(f"[Search] {axis['name']} ({axis['key']}): {len(pmids)} hits")
-            time.sleep(0.5)  # be gentle between axis queries
+            time.sleep(INTER_AXIS_DELAY)  # be gentle between axis queries
         except Exception as e:
             print(f"Error searching PubMed axis {axis['key']}: {e}")
 
@@ -508,7 +521,7 @@ def fetch_details(pmid_axes):
 
             # --- PARALLEL ARCHITECTURE END ---
 
-            time.sleep(13) # Prevent potential rate limiting from free tier
+            time.sleep(PER_ARTICLE_DELAY) # Pause after each passing article (rate-limit courtesy)
 
             results.append(record)
 
@@ -529,7 +542,7 @@ def send_email(subject, html_content):
         
         msg.attach(MIMEText(html_content, 'html'))
         
-        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server = smtplib.SMTP(SMTP_HOST, SMTP_PORT)
         server.starttls()
         server.login(SENDER_EMAIL, SENDER_PASSWORD)
         for receiver in receivers:
