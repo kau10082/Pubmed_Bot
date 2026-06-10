@@ -179,6 +179,14 @@ Each report (email + Obsidian note) shows the **journal, axis, and SJR grade**, 
 
 ---
 
+## Data source & attribution ｜ 資料來源與標註
+
+**EN** — `data/scimago.csv.gz` is the **2025 edition** of the [SCImago Journal & Country Rank](https://www.scimagojr.com/) (SJR) dataset, derived from Elsevier's Scopus database. It is © SCImago / Scopus and is bundled here **for non-commercial, academic/personal use only**. SJR data is not covered by this project's MIT license; if you reuse it, credit SCImago and review their terms. Refresh it yearly per §5.2.
+
+**中文** — `data/scimago.csv.gz` 為 [SCImago Journal & Country Rank](https://www.scimagojr.com/)（SJR）**2025 年版**資料，源自 Elsevier 的 Scopus 資料庫。著作權屬 SCImago / Scopus，於此**僅供非商業之學術／個人用途**打包附帶。SJR 資料不受本專案 MIT 授權涵蓋；如需再利用，請標註 SCImago 並自行確認其條款。每年依 §5.2 更新。
+
+> SCImago, (n.d.). *SJR — SCImago Journal & Country Rank* [Portal]. Retrieved from https://www.scimagojr.com/
+
 ## License ｜ 授權
 
-MIT License — see [LICENSE](LICENSE).
+MIT License — see [LICENSE](LICENSE). The license covers the **code only**; bundled SCImago data is excluded (see above). ｜ MIT 授權**僅涵蓋程式碼**；附帶的 SCImago 資料不在此列（見上）。
