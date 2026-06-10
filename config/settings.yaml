@@ -1,13 +1,55 @@
 query:
-  core: '(COPD OR "chronic obstructive pulmonary disease" OR asthma OR bronchiectasis OR IPF OR "Pulmonary fibrosis" OR "smoking cessation" OR "Catheter-related bloodstream infection" OR CRBSI OR "catheter-associated urinary tract infection" OR CAUTI OR "ventilator-associated pneumonia" OR VAP OR "osteoinductive factor" OR BICRI OR REVOCART OR minocycline OR fluzole OR "chronic cough" OR "interstitial lung disease" OR ILD OR pneumonia OR tuberculosis OR "lung abscess" OR "pulmonary embolism" OR "pulmonary hypertension" OR "pulmonary arterial hypertension" OR "respiratory failure" OR "mechanical ventilation" OR "pleural effusion")'
+  # Applied to every axis. [PT]/[MH] tags require indexing -> pairs naturally with mhda.
   study_type_filter: 'AND (Randomized Controlled Trial[PT] OR Meta-Analysis[PT] OR Systematic Review[PT]) AND humans[MH]'
-  negative_filter: 'NOT (pediatric OR child OR children OR infants OR neonatal OR animal OR rat OR rats OR mouse OR mice OR murine OR rodent OR "in vitro" OR "cell line" OR "animal model" OR thoracotomy OR lobectomy OR pneumonectomy OR "nerve block" OR "plane block" OR "serratus block" OR perioperative OR intraoperative OR "general anesthesia" OR anaesthesia OR "surgical resection" OR "traditional Chinese medicine" OR "Chinese herbal" OR acupuncture OR moxibustion OR "herbal medicine" OR "folk medicine" OR cupping)'
+
+  # Composable negative subgroups. Each axis lists which subgroups to apply (see axes[].negatives).
+  # Key design point: 'surgical' collides with implant/device topics, so the 博晟 axis omits it;
+  # the other three axes apply the full set (this institution has no OR/surgical care).
+  negatives:
+    nonhuman: 'animal OR rat OR rats OR mouse OR mice OR murine OR rodent OR "in vitro" OR "cell line" OR "animal model"'
+    pediatric: 'pediatric OR child OR children OR infants OR neonatal'
+    surgical: 'thoracotomy OR lobectomy OR pneumonectomy OR "nerve block" OR "plane block" OR "serratus block" OR perioperative OR intraoperative OR "general anesthesia" OR anaesthesia OR "surgical resection"'
+    tcm: '"traditional Chinese medicine" OR "Chinese herbal" OR acupuncture OR moxibustion OR "herbal medicine" OR "folk medicine" OR cupping'
+    oncology: '"Lung Neoplasms"[MH]'
+
+  # Four positive axes. Each is searched independently so results carry an axis tag
+  # (used for the SJR category lookup). sjr_categories names must match the SCImago CSV exactly.
+  axes:
+    - key: pulmonary
+      name: '肺部疾病'
+      core: '(COPD OR "chronic obstructive pulmonary disease" OR asthma OR bronchiectasis OR IPF OR "Pulmonary fibrosis" OR "smoking cessation" OR "chronic cough" OR "interstitial lung disease" OR ILD OR pneumonia OR tuberculosis OR "lung abscess" OR "pulmonary embolism" OR "pulmonary hypertension" OR "pulmonary arterial hypertension" OR "pleural effusion")'
+      negatives: [nonhuman, pediatric, surgical, tcm, oncology]
+      sjr_categories: ['Pulmonary and Respiratory Medicine']
+
+    - key: infection_control
+      name: '感控'
+      core: '("Catheter-related bloodstream infection" OR CRBSI OR "catheter-associated urinary tract infection" OR CAUTI OR "ventilator-associated pneumonia" OR VAP OR "healthcare-associated infection" OR "nosocomial infection" OR "antimicrobial stewardship" OR "infection control" OR "infection prevention" OR "outbreak")'
+      negatives: [nonhuman, pediatric, surgical, tcm, oncology]
+      sjr_categories: ['Infectious Diseases', 'Microbiology (medical)']
+
+    - key: critical_care
+      name: '重症'
+      core: '("critical care" OR "intensive care" OR ICU OR sepsis OR "septic shock" OR ARDS OR "acute respiratory distress syndrome" OR "respiratory failure" OR "mechanical ventilation")'
+      negatives: [nonhuman, pediatric, surgical, tcm, oncology]
+      sjr_categories: ['Critical Care and Intensive Care Medicine']
+
+    - key: biosheng
+      name: '博晟產品線'
+      core: '("osteoinductive factor" OR OIF OR BICRI OR REVOCART OR RevoCart OR BiG OR minocycline OR fluzole)'
+      negatives: [nonhuman, pediatric]   # exempt 'surgical' (implant/device topics); keep noise reducers
+      sjr_categories: ['Orthopedics and Sports Medicine', 'Biomedical Engineering']
 
 search:
   # mhda = MeSH date (when indexing completes and [PT]/[MH] tags are applied).
   # Must NOT be 'edat' while the query filters on [PT]/[MH] tags, or it returns ~0 daily.
   datetype:
     - mhda
+
+sjr:
+  enabled: true
+  csv_path: 'data/scimago.csv.gz'   # gzipped SCImago export; sjr.py reads .gz transparently
+  allowed_quartiles: ['Q1', 'Q2']
+  include_unindexed: true   # 寧鬆勿漏: journals absent from the SJR table pass through, flagged 未收錄
 
 report:
   gemini_model: 'gemini-2.5-flash'

@@ -33,6 +33,7 @@ except ImportError:
     MediaInMemoryUpload = None
 
 import re
+import sjr
 
 # Ensure stdio uses utf-8 to handle special characters from PubMed
 sys.stdout.reconfigure(encoding='utf-8')
@@ -70,9 +71,30 @@ GDRIVE_FOLDER_ID = os.getenv("GDRIVE_FOLDER_ID")
 with open('config/settings.yaml', 'r', encoding='utf-8') as f:
     settings = yaml.safe_load(f)
 
-CORE_QUERY = settings['query']['core']
 STUDY_TYPE_FILTER = settings['query']['study_type_filter']
-NEGATIVE_FILTER = settings['query']['negative_filter']
+NEGATIVE_GROUPS = settings['query'].get('negatives', {}) or {}
+AXES = settings['query'].get('axes', []) or []
+
+
+def build_axis_query(axis):
+    """Assemble one axis's full PubMed query: core AND study_type NOT (selected negatives)."""
+    parts = [axis['core'], STUDY_TYPE_FILTER]
+    neg_terms = [NEGATIVE_GROUPS[g] for g in axis.get('negatives', []) if NEGATIVE_GROUPS.get(g)]
+    if neg_terms:
+        parts.append("NOT (" + " OR ".join(neg_terms) + ")")
+    return " ".join(parts)
+
+
+# SJR (SCImago) journal-quartile filter configuration
+_sjr_cfg = settings.get('sjr', {}) or {}
+SJR_ENABLED = bool(_sjr_cfg.get('enabled', False))
+SJR_CSV_PATH = _sjr_cfg.get('csv_path', 'data/scimago.csv')
+SJR_ALLOWED_QUARTILES = set(_sjr_cfg.get('allowed_quartiles', ['Q1', 'Q2']))
+SJR_INCLUDE_UNINDEXED = bool(_sjr_cfg.get('include_unindexed', True))
+
+sjr_index = sjr.SJRIndex()
+if SJR_ENABLED:
+    sjr_index.load(SJR_CSV_PATH)
 
 # Date axis for the daily search window.
 # NOTE: The query filters on Publication Type ([PT]) and MeSH ([MH]) tags, which are
@@ -93,9 +115,6 @@ REPORT_LANGUAGE = settings['report']['language']
 # giving up. Configurable via report.gemini_fallback_models in settings.yaml.
 _fallbacks = settings['report'].get('gemini_fallback_models', []) or []
 GEMINI_MODELS = [GEMINI_MODEL] + [m for m in _fallbacks if m and m != GEMINI_MODEL]
-
-# Combine into a single comprehensive query
-FULL_QUERY = f"{CORE_QUERY} {STUDY_TYPE_FILTER} {NEGATIVE_FILTER}"
 
 client = None
 if genai and GEMINI_API_KEY:
@@ -268,6 +287,9 @@ def build_markdown_note(record):
         f"# {record['Title']}\n\n"
         f"- **PMID:** {record['PMID']}\n"
         f"- **Link:** {record['URL']}\n"
+        f"- **Journal:** {record.get('Journal', '')}\n"
+        f"- **領域軸:** {record.get('Axes', '')}\n"
+        f"- **期刊分級:** {record.get('SJR', '')}\n"
         f"- **Research Method:** {record['Research Method']}\n"
         f"- **n-Value:** {record['n-Value']}\n"
         f"- **Impact & Evidence Rating:** {record['Impact & Evidence Rating']}\n\n"
@@ -298,41 +320,82 @@ def export_to_gdrive(record, date_str):
         return False
 
 def search_pubmed():
-    """Search PubMed and retrieve a list of PMIDs matching the criteria from yesterday."""
+    """Search each axis independently and return {pmid: set(axis_keys)} for yesterday.
+
+    Searching per-axis (rather than one combined query) lets each result carry its axis
+    tag, which drives the SJR category lookup, and lets each axis apply its own negatives.
+    """
     search_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
-    
     yesterday = (datetime.now() - timedelta(days=1)).strftime('%Y/%m/%d')
 
-    # Search by MeSH date so the window matches when [PT]/[MH] tags are applied (see SEARCH_DATETYPE note)
-    params = {
-        "db": "pubmed",
-        "term": FULL_QUERY,
-        "mindate": yesterday,
-        "maxdate": yesterday,
-        "datetype": SEARCH_DATETYPE,
-        "retmode": "json",
-        "api_key": PUBMED_API_KEY,
-        "retmax": 100
-    }
+    pmid_axes = {}
+    for axis in AXES:
+        params = {
+            "db": "pubmed",
+            "term": build_axis_query(axis),
+            "mindate": yesterday,
+            "maxdate": yesterday,
+            "datetype": SEARCH_DATETYPE,
+            "retmode": "json",
+            "api_key": PUBMED_API_KEY,
+            "retmax": 100
+        }
+        try:
+            response = requests.get(search_url, params=params)
+            response.raise_for_status()
+            pmids = response.json().get("esearchresult", {}).get("idlist", [])
+            for pmid in pmids:
+                pmid_axes.setdefault(pmid, set()).add(axis['key'])
+            print(f"[Search] {axis['name']} ({axis['key']}): {len(pmids)} hits")
+            time.sleep(0.5)  # be gentle between axis queries
+        except Exception as e:
+            print(f"Error searching PubMed axis {axis['key']}: {e}")
 
-    try:
-        response = requests.get(search_url, params=params)
-        response.raise_for_status()
-        data = response.json()
-        pmids = data.get("esearchresult", {}).get("idlist", [])
+    print(f"[Search] Union of all axes: {len(pmid_axes)} unique PMIDs")
+    return pmid_axes
 
-        # Remove duplicates by PMID just in case
-        all_pmids = list(set(pmids))
-        return all_pmids
-    except Exception as e:
-        print(f"Error searching PubMed: {e}")
-        return []
 
-def fetch_details(id_list):
-    """Fetch structured metadata and abstracts for a list of PMIDs."""
+def axis_categories_for(axis_keys):
+    """Collect the SJR category names for a set of matched axis keys."""
+    cats = []
+    for axis in AXES:
+        if axis['key'] in axis_keys:
+            cats.extend(axis.get('sjr_categories', []) or [])
+    return cats
+
+
+def format_sjr_label(verdict):
+    """Human-readable SJR label for reports."""
+    if verdict.get('status') == 'indexed':
+        cat = verdict['category']
+        if verdict.get('fallback'):
+            return f"SJR {verdict['q']}（best-Q fallback）"
+        return f"SJR {verdict['q']}（{cat}）"
+    if verdict.get('status') == 'unindexed':
+        return "SJR：未收錄"
+    return "SJR：未啟用"
+
+def passes_sjr(verdict):
+    """Decide whether an article clears the SJR quartile gate."""
+    status = verdict.get('status')
+    if status == 'disabled':
+        return True
+    if status == 'unindexed':
+        return SJR_INCLUDE_UNINDEXED
+    return verdict.get('q') in SJR_ALLOWED_QUARTILES
+
+
+def fetch_details(pmid_axes):
+    """Fetch metadata for matched PMIDs, apply the SJR gate, then run branches A/B/C.
+
+    pmid_axes: {pmid: set(axis_keys)} from search_pubmed().
+    SJR filtering happens BEFORE the expensive branches so filtered articles cost no
+    Gemini call / Zotero write / Drive upload.
+    """
+    id_list = list(pmid_axes.keys())
     if not id_list:
         return []
-        
+
     fetch_url = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
     params = {
         "db": "pubmed",
@@ -340,30 +403,49 @@ def fetch_details(id_list):
         "retmode": "xml",
         "api_key": PUBMED_API_KEY
     }
-    
+
     try:
         response = requests.get(fetch_url, params=params)
         response.raise_for_status()
-        
+
         root = ET.fromstring(response.content)
         results = []
-        
+        total = filtered = 0
+
         for article in root.findall(".//PubmedArticle"):
+            total += 1
             pmid_node = article.find(".//PMID")
             pmid = pmid_node.text if pmid_node is not None else "Unknown PMID"
-            
+
             article_node = article.find(".//Article")
             title = article_node.findtext("ArticleTitle") if article_node is not None else "No Title"
-            
+
             abstract_nodes = article.findall(".//AbstractText")
             if abstract_nodes:
                 abstract = " ".join([node.text for node in abstract_nodes if node.text])
             else:
                 abstract = "No abstract available."
-                
+
             journal = article.findtext(".//Journal/Title") or ""
             journal_abbr = article.findtext(".//Journal/ISOAbbreviation") or article.findtext(".//MedlineJournalInfo/MedlineTA") or ""
-            
+
+            # Collect every ISSN form for SJR matching (print/electronic/linking)
+            issns = [n.text for n in article.findall(".//Journal/ISSN") if n.text]
+            issn_linking = article.findtext('.//MedlineJournalInfo/ISSNLinking')
+            if issn_linking:
+                issns.append(issn_linking)
+
+            # --- SJR QUARTILE GATE (before any expensive branch) ---
+            axis_keys = pmid_axes.get(pmid, set())
+            axis_names = [a['name'] for a in AXES if a['key'] in axis_keys]
+            sjr_verdict = sjr_index.lookup(issns, axis_categories_for(axis_keys))
+            sjr_label = format_sjr_label(sjr_verdict)
+
+            if not passes_sjr(sjr_verdict):
+                filtered += 1
+                print(f"[SJR] Filtered out PMID {pmid} ({sjr_label}) - {journal}")
+                continue
+
             # Advanced date parsing for full YYYY-MM-DD format
             date_str = ""
             artdate = article.find('.//ArticleDate')
@@ -412,6 +494,9 @@ def fetch_details(id_list):
                 "Title": title,
                 "URL": url,
                 "Abstract": abstract,
+                "Journal": journal,
+                "Axes": "、".join(axis_names),
+                "SJR": sjr_label,
                 "Research Method": ai_data["Research Method"],
                 "n-Value": ai_data["n-Value"],
                 "Abstract Summary": ai_data["Abstract Summary"],
@@ -427,6 +512,7 @@ def fetch_details(id_list):
 
             results.append(record)
 
+        print(f"[Filter] {total} fetched -> {len(results)} passed SJR gate ({filtered} filtered out)")
         return results
     except Exception as e:
         print(f"Error fetching/parsing details from PubMed: {e}")
@@ -455,13 +541,13 @@ def send_email(subject, html_content):
 
 def main():
     print("Initiating daily PubMed query...")
-    print(f"Query string: {FULL_QUERY}")
-    
-    pmids = search_pubmed()
+    print(f"Axes: {', '.join(a['key'] for a in AXES)} | datetype={SEARCH_DATETYPE} | SJR={'on' if SJR_ENABLED else 'off'}")
+
+    pmid_axes = search_pubmed()
     today_str = datetime.now().strftime('%Y-%m-%d')
     date_time_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    
-    if not pmids:
+
+    if not pmid_axes:
         print("\nNo articles found matching the criteria in the last 24 hours.")
         subject = f"{EMAIL_SUBJECT_PREFIX} System Alert: No results found today."
         email_content = f'''
@@ -477,9 +563,25 @@ def main():
         send_email(subject, email_content)
         return
 
-    print(f"\nFound {len(pmids)} new articles in the last 24 hours. Fetching details and analyzing...\n")
-    articles = fetch_details(pmids)
-    
+    print(f"\nFound {len(pmid_axes)} candidate articles (union of axes). Fetching details, applying SJR gate, analyzing...\n")
+    articles = fetch_details(pmid_axes)
+
+    if not articles:
+        print("\nAll candidates were filtered out by the SJR gate; no report sent with articles.")
+        subject = f"{EMAIL_SUBJECT_PREFIX} System Alert: No qualifying articles today (all filtered)."
+        email_content = f'''
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <h2>No qualifying articles today.</h2>
+            <p>Generated on: {date_time_str}</p>
+            <hr>
+            <p>{len(pmid_axes)} candidate(s) matched the search but none passed the SJR Q1-Q2 gate.</p>
+        </body>
+        </html>
+        '''
+        send_email(subject, email_content)
+        return
+
     subject = f"{EMAIL_SUBJECT_PREFIX} PubMed Daily Report - {today_str}"
     
     email_content = f'''
@@ -503,17 +605,19 @@ def main():
         # Print to console for local logging
         print(f"[{i}] {article['Title']}")
         print(f"    PMID: {article['PMID']} | URL: {article['URL']}")
+        print(f"    Journal: {article.get('Journal', '')} | {article.get('SJR', '')} | 軸: {article.get('Axes', '')}")
         print(f"    Method: {article['Research Method']} | n-Value: {article['n-Value']}")
         print(f"    Summary (ZH): {article['Abstract Summary']}")
         print(f"    Impact (ZH): {article['Impact & Evidence Rating']}")
         print("-" * 80)
-        
+
         # Add to HTML email
         email_content += f'''
         <div class="article">
             <div class="title">{i}. {article['Title']}</div>
             <div class="metadata">
                 <b>PMID:</b> {article['PMID']} | <b>Link:</b> <a href="{article['URL']}">{article['URL']}</a><br>
+                <b>Journal:</b> {article.get('Journal', '')}　|　<b>期刊分級:</b> {article.get('SJR', '')}　|　<b>領域軸:</b> {article.get('Axes', '')}<br>
                 <b>Research Method:</b> {article['Research Method']}<br>
                 <b>n-Value:</b> {article['n-Value']}
             </div>
