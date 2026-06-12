@@ -29,7 +29,10 @@ query:
 
     - key: critical_care
       name: '重症'
-      core: '("critical care" OR "intensive care" OR ICU OR sepsis OR "septic shock" OR ARDS OR "acute respiratory distress syndrome" OR "respiratory failure" OR "mechanical ventilation")'
+      # MeSH Major Topic ([Majr]): the article's MAIN focus must be critical care, not a passing
+      # mention -- this cuts the free-text noise (e.g. a psychiatry paper mentioning "ICU").
+      # Works because we search by mhda (indexed articles always carry MeSH).
+      core: '("Critical Care"[Majr] OR "Critical Illness"[Majr] OR "Intensive Care Units"[Majr] OR "Sepsis"[Majr] OR "Shock, Septic"[Majr] OR "Respiratory Distress Syndrome"[Majr] OR "Respiratory Insufficiency"[Majr] OR "Respiration, Artificial"[Majr])'
       negatives: [nonhuman, pediatric, surgical, tcm, oncology]
       sjr_categories: ['Critical Care and Intensive Care Medicine']
 
