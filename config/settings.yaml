@@ -17,7 +17,7 @@ query:
   axes:
     - key: pulmonary
       name: '肺部疾病'
-      core: '(COPD OR "chronic obstructive pulmonary disease" OR asthma OR bronchiectasis OR IPF OR "Pulmonary fibrosis" OR "smoking cessation" OR "chronic cough" OR "interstitial lung disease" OR ILD OR pneumonia OR tuberculosis OR "lung abscess" OR "pulmonary embolism" OR "pulmonary hypertension" OR "pulmonary arterial hypertension" OR "pleural effusion" OR "Lung Diseases"[MeSH] OR "lung disease" OR "lung diseases" OR "pulmonary disease" OR "pulmonary diseases" OR "respiratory disease" OR "respiratory diseases" OR "sleep apnea" OR bronchitis OR emphysema OR pneumothorax OR empyema OR hemoptysis OR sarcoidosis OR "cystic fibrosis" OR "pulmonary nodule" OR "lung nodule" OR "pulmonary edema" OR pneumoconiosis OR "occupational lung disease" OR "respiratory tract infection")'
+      core: '(COPD OR "chronic obstructive pulmonary disease" OR asthma OR bronchiectasis OR IPF OR "Pulmonary fibrosis" OR "chronic cough" OR "interstitial lung disease" OR ILD OR pneumonia OR tuberculosis OR "lung abscess" OR "pulmonary embolism" OR "pulmonary hypertension" OR "pulmonary arterial hypertension" OR "pleural effusion" OR "Lung Diseases"[MeSH] OR "lung disease" OR "lung diseases" OR "pulmonary disease" OR "pulmonary diseases" OR "respiratory disease" OR "respiratory diseases" OR "sleep apnea" OR bronchitis OR emphysema OR pneumothorax OR empyema OR hemoptysis OR sarcoidosis OR "cystic fibrosis" OR "pulmonary nodule" OR "lung nodule" OR "pulmonary edema" OR pneumoconiosis OR "occupational lung disease" OR "respiratory tract infection")'
       negatives: [nonhuman, pediatric, surgical, tcm, oncology]
       sjr_categories: ['Pulmonary and Respiratory Medicine']
 
@@ -46,6 +46,16 @@ query:
       negatives: [nonhuman, pediatric]   # exempt 'surgical' (implant/device topics); keep noise reducers
       sjr_categories: ['Orthopedics and Sports Medicine', 'Biomedical Engineering']
       allowed_quartiles: ['Q1', 'Q2']    # override: 博晟 keeps Q1+Q2 (narrow product line, keep recall)
+
+    - key: smoking_cessation
+      name: '戒菸'
+      # Dedicated axis: smoking-cessation / tobacco-control research often lives in addiction &
+      # public-health journals (Addiction, Tobacco Control, Nicotine & Tobacco Research) outside the
+      # Pulmonary SJR category, so it gets its own Q1+Q2 threshold to preserve recall.
+      core: '("Smoking Cessation"[Majr] OR "Tobacco Use Cessation"[Majr] OR "Tobacco Use Disorder"[Majr] OR "Vaping"[Majr] OR "Electronic Nicotine Delivery Systems"[Majr] OR "smoking cessation" OR "tobacco cessation" OR "quit smoking" OR "smoking abstinence" OR "nicotine replacement")'
+      negatives: [nonhuman, pediatric, surgical, tcm, oncology]
+      sjr_categories: ['Public Health, Environmental and Occupational Health', 'Psychiatry and Mental Health', 'Pulmonary and Respiratory Medicine']
+      allowed_quartiles: ['Q1', 'Q2']
 
 search:
   # mhda = MeSH date (when indexing completes and [PT]/[MH] tags are applied).
