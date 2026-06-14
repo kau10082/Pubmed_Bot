@@ -1,3 +1,11 @@
+# Output branch switches (persistent default). Each can be overridden per-run by an env
+# var on/off: RUN_ZOTERO / RUN_EMAIL / RUN_GDRIVE (used by the GitHub Actions "Run workflow"
+# inputs, or locally e.g. `RUN_ZOTERO=off python pubmed_automation.py`).
+branches:
+  zotero: false   # Branch A — OFF: at current volume the manual Zotero curation outweighs the benefit
+  email: true     # Branch B — Gemini email digest
+  gdrive: true    # Branch C — Obsidian notes to Google Drive
+
 query:
   # Applied to every axis. [PT]/[MH] tags require indexing -> pairs naturally with mhda.
   study_type_filter: 'AND (Randomized Controlled Trial[PT] OR Meta-Analysis[PT] OR Systematic Review[PT]) AND humans[MH]'

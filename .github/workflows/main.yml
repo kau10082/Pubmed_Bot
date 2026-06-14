@@ -5,6 +5,22 @@ on:
     # Runs daily at 04:30 Taipei Time (UTC 20:30)
     - cron: '30 20 * * *'
   workflow_dispatch: # Allows manual execution from the Actions tab
+    inputs:
+      zotero:
+        description: 'Branch A · Zotero'
+        type: choice
+        options: [default, 'on', 'off']
+        default: default
+      email:
+        description: 'Branch B · Email'
+        type: choice
+        options: [default, 'on', 'off']
+        default: default
+      gdrive:
+        description: 'Branch C · Google Drive'
+        type: choice
+        options: [default, 'on', 'off']
+        default: default
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -39,4 +55,7 @@ jobs:
           GDRIVE_CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
           GDRIVE_REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
           GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          RUN_ZOTERO: ${{ github.event.inputs.zotero }}
+          RUN_EMAIL: ${{ github.event.inputs.email }}
+          RUN_GDRIVE: ${{ github.event.inputs.gdrive }}
         run: python pubmed_automation.py

@@ -129,6 +129,23 @@ GEMINI_BACKOFF_BASE = float(_report_cfg.get('gemini_backoff_base_seconds', 15)) 
 SMTP_HOST = _report_cfg.get('smtp_host', 'smtp.gmail.com')
 SMTP_PORT = int(_report_cfg.get('smtp_port', 587))
 
+
+# Branch on/off switches. Persistent default lives in settings.yaml (branches:);
+# each can be overridden per-run by an env var (RUN_ZOTERO / RUN_EMAIL / RUN_GDRIVE)
+# set to on/off -- the GitHub Actions "Run workflow" inputs and local runs use this.
+def _branch_flag(env_name, default):
+    v = (os.getenv(env_name) or '').strip().lower()
+    if v in ('on', 'true', '1', 'yes'):
+        return True
+    if v in ('off', 'false', '0', 'no'):
+        return False
+    return default   # empty / 'default' -> fall back to settings.yaml
+
+_branches_cfg = settings.get('branches', {}) or {}
+BRANCH_ZOTERO = _branch_flag('RUN_ZOTERO', bool(_branches_cfg.get('zotero', True)))   # Branch A
+BRANCH_EMAIL = _branch_flag('RUN_EMAIL', bool(_branches_cfg.get('email', True)))      # Branch B
+BRANCH_GDRIVE = _branch_flag('RUN_GDRIVE', bool(_branches_cfg.get('gdrive', True)))   # Branch C
+
 # Ordered list of models to try. When the primary model returns 503/UNAVAILABLE
 # (overloaded) and retries are exhausted, fall back to the next model instead of
 # giving up. Configurable via report.gemini_fallback_models in settings.yaml.
@@ -552,13 +569,15 @@ def fetch_details(pmid_axes):
                 
             url = f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
             
-            # --- PARALLEL ARCHITECTURE START ---
+            # --- PARALLEL ARCHITECTURE START (each branch independently switchable) ---
 
             # Branch A: Sterile Zotero Ingestion (Source of Truth)
-            ingest_to_zotero(title, abstract, url, pmid, authors, journal, journal_abbr, date_str, doi, volume, issue, pages)
+            if BRANCH_ZOTERO:
+                ingest_to_zotero(title, abstract, url, pmid, authors, journal, journal_abbr, date_str, doi, volume, issue, pages)
 
-            # Branch B: Gemini AI Analysis (Clinical Assistant)
-            ai_data = analyze_with_gemini(title, abstract)
+            # Branch B: Gemini AI Analysis -- needed for the email report and/or the Drive note
+            gemini_needed = BRANCH_EMAIL or BRANCH_GDRIVE
+            ai_data = analyze_with_gemini(title, abstract) if gemini_needed else {}
 
             record = {
                 "PMID": pmid,
@@ -568,19 +587,21 @@ def fetch_details(pmid_axes):
                 "Journal": journal,
                 "Axes": "、".join(axis_names),
                 "SJR": sjr_label,
-                "Research Method": ai_data["Research Method"],
-                "n-Value": ai_data["n-Value"],
-                "Abstract Summary": ai_data["Abstract Summary"],
+                "Research Method": ai_data.get("Research Method", "-"),
+                "n-Value": ai_data.get("n-Value", "-"),
+                "Abstract Summary": ai_data.get("Abstract Summary", "-"),
                 "One-line Summary": ai_data.get("One-line Summary", ""),
-                "Impact & Evidence Rating": ai_data["Impact & Evidence Rating"]
+                "Impact & Evidence Rating": ai_data.get("Impact & Evidence Rating", "-")
             }
 
             # Branch C: Export Markdown note into the Obsidian vault on Google Drive
-            export_to_gdrive(record, datetime.now().strftime('%Y-%m-%d'))
+            if BRANCH_GDRIVE:
+                export_to_gdrive(record, datetime.now().strftime('%Y-%m-%d'))
 
             # --- PARALLEL ARCHITECTURE END ---
 
-            time.sleep(PER_ARTICLE_DELAY) # Pause after each passing article (rate-limit courtesy)
+            if gemini_needed:
+                time.sleep(PER_ARTICLE_DELAY) # Pause after each Gemini call (rate-limit courtesy)
 
             results.append(record)
 
@@ -591,6 +612,9 @@ def fetch_details(pmid_axes):
         return [], 0, 0
 
 def send_email(subject, html_content):
+    if not BRANCH_EMAIL:
+        print("[Email] Branch B disabled; skipping email send.")
+        return
     try:
         print("\nSending email...")
         receivers = [r.strip() for r in RECEIVER_EMAIL.split(",")]
@@ -614,6 +638,7 @@ def send_email(subject, html_content):
 def main():
     print("Initiating daily PubMed query...")
     print(f"Axes: {', '.join(a['key'] for a in AXES)} | datetype={SEARCH_DATETYPE} | SJR={'on' if SJR_ENABLED else 'off'}")
+    print(f"Branches: Zotero={'on' if BRANCH_ZOTERO else 'OFF'} | Email={'on' if BRANCH_EMAIL else 'OFF'} | GDrive={'on' if BRANCH_GDRIVE else 'OFF'}")
 
     pmid_axes = search_pubmed()
     today_str = datetime.now().strftime('%Y-%m-%d')
