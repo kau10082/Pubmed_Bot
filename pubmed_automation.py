@@ -245,7 +245,7 @@ Please output your response STRICTLY as a JSON object with the exact following s
 "Research Method" : [Formal Full English Term] ([{REPORT_LANGUAGE} Annotation]). Constraint: Use formal full terms (e.g. Randomized Controlled Trial, NOT RCT). The annotation must be strictly under 30 chars and written in {REPORT_LANGUAGE}. Logic Guard: If ambiguous, use the most specific full-length English term and set the annotation to "待進一步臨床核實" if language is zh-TW, or "Pending further clinical verification" if language is en. e.g. "Randomized Controlled Trial (雙盲隨機對照試驗，評估 Minocycline 對於 VAP 之療效)"
 "n-Value" : {REPORT_LANGUAGE} only. Summarize the sample size, cohort composition, or population details. Constraint: Total length must be strictly under 30 characters. e.g. "共 450 名加護病房使用呼吸器之成年患者"
 "Abstract Summary" : A detailed and comprehensive {REPORT_LANGUAGE} summary capturing the study's background, key results, and conclusion. Do not be overly brief; aim for a length between 300 and 500 characters.
-"One-line Summary" : ONE concise {REPORT_LANGUAGE} sentence (strictly under 50 characters) capturing the single most important takeaway. e.g. "Minocycline 顯著降低 VAP 發生率，但未改善死亡率"
+"One-line Summary" : A single clear, fluent, plain-language {REPORT_LANGUAGE} sentence a busy clinician grasps at a glance -- say what was studied and the key finding in everyday words, avoiding jargon and abbreviations where possible. Prioritize readability over brevity; aim for about 60 {REPORT_LANGUAGE} characters and do NOT make it terse or choppy. e.g. "在加護病房病人中，這款抗生素能降低肺炎發生率，但沒有改善存活率"
 "Impact & Evidence Rating" : {REPORT_LANGUAGE} assessment of impact and evidence rating
 
 Title: {title}
@@ -439,18 +439,22 @@ def build_search_summary_html(pmid_axes, filtered, passed):
 
 
 def build_digest_html(articles):
-    """'今日文章摘要': a one-line takeaway per article, each linking out to PubMed."""
-    items = []
+    """'今日文章摘要': one-line takeaway per article + PubMed link.
+
+    Numbered with the SAME index as the detailed entries below (both enumerate the
+    same `articles` list in the same order), so digest item N == detail item N.
+    """
+    rows = []
     for i, a in enumerate(articles, 1):
-        one_line = a.get('One-line Summary') or (a.get('Abstract Summary', '') or '')[:50]
-        items.append(
-            f'<li style="margin-bottom:6px;">{one_line} '
-            f'<a href="{a["URL"]}" style="color:#007bff;text-decoration:none;">[PubMed]</a></li>'
+        one_line = a.get('One-line Summary') or (a.get('Abstract Summary', '') or '')[:60]
+        rows.append(
+            f'<div style="margin-bottom:6px;"><b>{i}.</b> {one_line} '
+            f'<a href="{a["URL"]}" style="color:#007bff;text-decoration:none;">[PubMed]</a></div>'
         )
     return (
         '<div style="margin-bottom:20px;font-size:14px;">'
         '<b>📋 今日文章摘要</b>'
-        f'<ol style="margin-top:8px;padding-left:22px;">{"".join(items)}</ol>'
+        f'<div style="margin-top:8px;">{"".join(rows)}</div>'
         '</div>'
     )
 
