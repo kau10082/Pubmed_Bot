@@ -1,5 +1,8 @@
 # PubMed_Bot 🩺📚
 
+*A self-hosted **PubMed literature-alert** bot — automated daily **literature monitoring / surveillance** with **AI summaries**, a free alternative to PubMed email alerts / RSS, routed to **Zotero**, **email**, and **Obsidian**.*
+*自架的 **PubMed 文獻訂閱 / 追蹤機器人**：每日自動監測新文獻、AI 摘要，PubMed Email Alert／RSS 的替代方案，輸出到 Zotero、Email、Obsidian。*
+
 > **中文** — 每天自動從 PubMed 找出你關注領域的高品質醫學新論文，用 AI 寫成中文摘要，再寄到你的信箱、存進 Zotero、並同步成 Obsidian 筆記。讓你每天早上一杯咖啡的時間就掌握最新文獻，不必自己一篇篇翻。
 >
 > **EN** — Every day this bot finds new, high-quality medical papers on PubMed in the fields you care about, writes a Chinese summary with AI, and delivers them to your inbox, Zotero, and Obsidian. Stay on top of the literature in the time it takes to drink your morning coffee.
