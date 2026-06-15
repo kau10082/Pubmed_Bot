@@ -314,7 +314,7 @@ Abstract: {abstract}
         "Impact & Evidence Rating": "Error"
     }
 
-def sanitize_filename(name, max_len=120):
+def sanitize_filename(name, max_len=200):
     """Strip characters illegal in Windows/Obsidian filenames and cap the length."""
     name = re.sub(r'[\\/:*?"<>|#^\[\]]', '', name or "")
     name = name.strip().strip('.').strip()

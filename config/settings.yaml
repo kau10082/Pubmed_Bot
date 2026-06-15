@@ -19,6 +19,7 @@ query:
     surgical: 'thoracotomy OR lobectomy OR pneumonectomy OR "nerve block" OR "plane block" OR "serratus block" OR perioperative OR intraoperative OR "general anesthesia" OR anaesthesia OR "surgical resection"'
     tcm: '"traditional Chinese medicine" OR "Chinese herbal" OR acupuncture OR moxibustion OR "herbal medicine" OR "folk medicine" OR cupping'
     oncology: '"Lung Neoplasms"[MH]'
+    neuro: '"Cerebrovascular Disorders"[Majr] OR "Brain Injuries"[Majr] OR "Intracranial Hemorrhages"[Majr]'   # stroke / ICH / SAH / TBI as major topic (for neurocritical-care exclusion)
 
   # Four positive axes. Each is searched independently so results carry an axis tag
   # (used for the SJR category lookup). sjr_categories names must match the SCImago CSV exactly.
@@ -27,11 +28,12 @@ query:
       name: '肺部疾病'
       # MeSH Major Topic. "Lung Diseases"[Majr] auto-explodes to COPD/asthma/pneumonia/TB/IPF/ILD/
       # emphysema/bronchiectasis/lung abscess/pneumoconiosis/pulmonary nodule/pulmonary edema/etc.
-      # The other terms add the non-Lung-Diseases-tree concepts (pleura, PE, pulmonary HTN, sleep
-      # apnea, respiratory failure, cough, hemoptysis, CF). "Respiratory Tract Infections" is
+      # The other terms add the non-Lung-Diseases-tree concepts (pleura, PE, pulmonary HTN,
+      # respiratory failure, cough, hemoptysis, CF). OSA/sleep apnea is intentionally excluded.
+      # "Respiratory Tract Infections" is
       # deliberately omitted -- it pulls in upper-airway/URI, off-scope for a chest clinic, and
       # pneumonia is already covered by Lung Diseases.
-      core: '("Lung Diseases"[Majr] OR "Pleural Diseases"[Majr] OR "Pulmonary Embolism"[Majr] OR "Hypertension, Pulmonary"[Majr] OR "Sleep Apnea Syndromes"[Majr] OR "Respiratory Insufficiency"[Majr] OR "Cough"[Majr] OR "Hemoptysis"[Majr] OR "Cystic Fibrosis"[Majr])'
+      core: '("Lung Diseases"[Majr] OR "Pleural Diseases"[Majr] OR "Pulmonary Embolism"[Majr] OR "Hypertension, Pulmonary"[Majr] OR "Respiratory Insufficiency"[Majr] OR "Cough"[Majr] OR "Hemoptysis"[Majr] OR "Cystic Fibrosis"[Majr])'
       negatives: [nonhuman, pediatric, surgical, tcm, oncology]
       sjr_categories: ['Pulmonary and Respiratory Medicine']
 
@@ -51,7 +53,7 @@ query:
       # mention -- this cuts the free-text noise (e.g. a psychiatry paper mentioning "ICU").
       # Works because we search by mhda (indexed articles always carry MeSH).
       core: '("Critical Care"[Majr] OR "Critical Illness"[Majr] OR "Intensive Care Units"[Majr] OR "Sepsis"[Majr] OR "Shock, Septic"[Majr] OR "Respiratory Distress Syndrome"[Majr] OR "Respiratory Insufficiency"[Majr] OR "Respiration, Artificial"[Majr])'
-      negatives: [nonhuman, pediatric, surgical, tcm, oncology]
+      negatives: [nonhuman, pediatric, surgical, tcm, oncology, neuro]   # neuro: exclude neurocritical-care (stroke/ICH/TBI)
       sjr_categories: ['Critical Care and Intensive Care Medicine']
 
     - key: biosheng
