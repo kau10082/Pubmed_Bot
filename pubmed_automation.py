@@ -181,6 +181,10 @@ if google_build and GoogleUserCredentials and all([GDRIVE_CLIENT_ID, GDRIVE_CLIE
     except Exception as e:
         print(f"Error initializing Google Drive: {e}")
 
+# Set when a Drive OAuth auth failure is detected during the run (expired/revoked token).
+# Once set, Branch C stops retrying and the email surfaces a warning banner.
+gdrive_auth_error = None
+
 def ingest_to_zotero(title, abstract, url, pmid, authors, journal, journal_abbr, date, doi, volume, issue, pages):
     """Branch A: Sterile Zotero Ingestion using official NCBI metadata."""
     if not zot:
@@ -340,8 +344,12 @@ def build_markdown_note(record):
 
 def export_to_gdrive(record, date_str):
     """Branch C: write one Markdown note per article into the Obsidian vault folder on Google Drive."""
+    global gdrive_auth_error
     if not drive_service:
         print(f"[GDrive] Not configured. Skipping PMID: {record['PMID']}")
+        return False
+    if gdrive_auth_error:
+        # Auth already failed this run -- don't hammer the API or spam the log once per article
         return False
     try:
         filename = f"{date_str}_{sanitize_filename(record['Title'])}.md"
@@ -357,6 +365,14 @@ def export_to_gdrive(record, date_str):
         print(f"[GDrive] Exported note: {filename}")
         return True
     except Exception as e:
+        msg = str(e)
+        if 'invalid_grant' in msg or 'expired or revoked' in msg.lower():
+            # OAuth refresh token dead -> record once, stop further attempts this run
+            gdrive_auth_error = msg
+            print("[GDrive] AUTH FAILED: refresh token expired/revoked. Disabling Branch C for this "
+                  "run. Re-authorize with get_refresh_token.py and update GDRIVE_REFRESH_TOKEN "
+                  "(and publish the OAuth app to Production so it doesn't expire in 7 days).")
+            return False
         print(f"[GDrive] Failed to export PMID {record['PMID']}: {e}")
         return False
 
@@ -686,7 +702,19 @@ def main():
         return
 
     subject = f"{EMAIL_SUBJECT_PREFIX} PubMed Daily Report - {today_str}"
-    
+
+    # Surface a Branch C auth failure at the very top so it's noticed same-day
+    gdrive_alert = ''
+    if BRANCH_GDRIVE and gdrive_auth_error:
+        gdrive_alert = (
+            '<div style="background:#fdecea;border-left:4px solid #d93025;color:#b71c1c;'
+            'padding:12px 15px;margin-bottom:16px;font-size:14px;border-radius:4px;">'
+            '⚠️ <b>Obsidian 同步失敗</b>：Google Drive token 已失效，今天的筆記未寫入 Obsidian。'
+            '請在本機重跑 <code>get_refresh_token.py</code> 重新授權、更新 GDRIVE_REFRESH_TOKEN，'
+            '並確認 OAuth app 已發布到 Production（否則每 7 天會再失效）。'
+            '</div>'
+        )
+
     email_content = f'''
     <html>
     <head>
@@ -701,6 +729,7 @@ def main():
     <body>
         <h2>Daily PubMed Summary</h2>
         <p>Generated on: {date_time_str}</p>
+        {gdrive_alert}
         <hr>
         {summary_html}
         {build_digest_html(articles)}
