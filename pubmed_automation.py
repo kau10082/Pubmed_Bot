@@ -249,7 +249,7 @@ Please output your response STRICTLY as a JSON object with the exact following s
 "Research Method" : [Formal Full English Term] ([{REPORT_LANGUAGE} Annotation]). Constraint: Use formal full terms (e.g. Randomized Controlled Trial, NOT RCT). The annotation must be strictly under 30 chars and written in {REPORT_LANGUAGE}. Logic Guard: If ambiguous, use the most specific full-length English term and set the annotation to "待進一步臨床核實" if language is zh-TW, or "Pending further clinical verification" if language is en. e.g. "Randomized Controlled Trial (雙盲隨機對照試驗，評估 Minocycline 對於 VAP 之療效)"
 "n-Value" : {REPORT_LANGUAGE} only. Summarize the sample size, cohort composition, or population details. Constraint: Total length must be strictly under 30 characters. e.g. "共 450 名加護病房使用呼吸器之成年患者"
 "Abstract Summary" : A detailed and comprehensive {REPORT_LANGUAGE} summary capturing the study's background, key results, and conclusion. Do not be overly brief; aim for a length between 300 and 500 characters.
-"One-line Summary" : A single short, plain-language {REPORT_LANGUAGE} sentence a busy clinician grasps at a glance -- the key finding in everyday words, no jargon/abbreviations. Aim for about 30 {REPORT_LANGUAGE} characters (max ~35); keep it a clean, readable sentence, not a choppy fragment. e.g. "這款抗生素能降低加護病房病人的肺炎，但無助存活率"
+"One-line Summary" : A single plain-language {REPORT_LANGUAGE} sentence a busy clinician grasps at a glance. It MUST name (a) the intervention/exposure studied, (b) the population or condition, and (c) the key outcome WITH its direction of effect. Spell out the essential drug / disease / population in plain words -- a well-known proper name (e.g. a specific drug) is fine; only avoid obscure acronyms. Aim for 40-55 {REPORT_LANGUAGE} characters; it must be ONE complete, readable sentence, never a choppy fragment or a vague platitude like "可改善預後". e.g. "在使用呼吸器的加護病房成人中，這款抗生素能降低肺炎發生率，但對存活率沒有幫助"
 "Impact & Evidence Rating" : {REPORT_LANGUAGE} assessment of impact and evidence rating
 
 Title: {title}
@@ -528,11 +528,23 @@ def fetch_details(pmid_axes):
             article_node = article.find(".//Article")
             title = article_node.findtext("ArticleTitle") if article_node is not None else "No Title"
 
+            # Use itertext() so inline markup (<sub>/<sup>/<i>/<b>) inside an AbstractText
+            # node doesn't truncate the text: node.text stops at the first child tag, which
+            # silently drops everything after it (often >50% of the abstract). Prefix the
+            # section Label (BACKGROUND/METHODS/RESULTS/CONCLUSIONS) so structured abstracts
+            # keep their structure for the Gemini summariser.
             abstract_nodes = article.findall(".//AbstractText")
-            if abstract_nodes:
-                abstract = " ".join([node.text for node in abstract_nodes if node.text])
-            else:
-                abstract = "No abstract available."
+            parts = []
+            for node in abstract_nodes:
+                text = "".join(node.itertext()).strip()
+                if not text:
+                    continue
+                label = (node.get("Label") or "").strip()
+                if label and label.upper() != "UNLABELLED":
+                    parts.append(f"{label}: {text}")
+                else:
+                    parts.append(text)
+            abstract = " ".join(parts) if parts else "No abstract available."
 
             journal = article.findtext(".//Journal/Title") or ""
             journal_abbr = article.findtext(".//Journal/ISOAbbreviation") or article.findtext(".//MedlineJournalInfo/MedlineTA") or ""
